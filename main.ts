@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import decompress from "npm:decompress";
 import { WorkshopItems } from "./interfaces.ts";
+import { parse, stringify } from "jsr:@std/yaml";
 
 const mods = [
   /**
@@ -116,6 +117,9 @@ async function downloadFile(url: string, outputLocationPath: string) {
 }
 
 async function app() {
+  const modsFilePath = "./mods.ts";
+  const mods = (await import(modsFilePath)).default;
+
   const resp = await axios.post(
     "https://db.steamworkshopdownloader.io/prod/api/details/file",
     mods,
@@ -142,16 +146,18 @@ async function app() {
     { recursive: true },
   );
 
-  console.log("const mods = [");
+  const modsFileContent = ["export default ["];
 
   for (const item of resp.data as WorkshopItems) {
-    console.log(`  /**`);
-    console.log(`   * ${item.title}`);
-    console.log(
+    console.log(`${item.publishedfileid} : ${item.title}`);
+
+    modsFileContent.push(`  /**`);
+    modsFileContent.push(`   * ${item.title}`);
+    modsFileContent.push(
       `   * https://steamcommunity.com/sharedfiles/filedetails/?id=${item.publishedfileid}`,
     );
-    console.log(`   */`);
-    console.log(`  ${item.publishedfileid},`);
+    modsFileContent.push(`   */`);
+    modsFileContent.push(`  ${item.publishedfileid},`);
 
     const modPath = path.resolve(
       modsPath,
@@ -176,8 +182,9 @@ async function app() {
   }
 
   await Deno.remove(tempDirPath, { recursive: true });
+  modsFileContent.push("];");
 
-  console.log("];");
+  await Deno.writeTextFile(modsFilePath, modsFileContent.join("\n"));
 }
 
 await app();
