@@ -115,65 +115,69 @@ async function downloadFile(url: string, outputLocationPath: string) {
   });
 }
 
-const resp = await axios.post(
-  "https://db.steamworkshopdownloader.io/prod/api/details/file",
-  mods,
-);
+async function app() {
+  const resp = await axios.post(
+    "https://db.steamworkshopdownloader.io/prod/api/details/file",
+    mods,
+  );
 
-const tempDirPath = await Deno.makeTempDir();
+  const tempDirPath = await Deno.makeTempDir();
 
-const modsPath = path.resolve(
-  homedir(),
-  ".config/unity3d/Klei/Oxygen Not Included/mods/Local/",
-);
+  const modsPath = path.resolve(
+    homedir(),
+    ".config/unity3d/Klei/Oxygen Not Included/mods/Local/",
+  );
 
-try {
-  const modsPathStat = await Deno.stat(modsPath);
-  if (modsPathStat.isDirectory) {
-    await Deno.remove(modsPath, { recursive: true });
+  try {
+    const modsPathStat = await Deno.stat(modsPath);
+    if (modsPathStat.isDirectory) {
+      await Deno.remove(modsPath, { recursive: true });
+    }
+  } catch {
+    //ignore
   }
-} catch {
-  //ignore
-}
-
-await Deno.mkdir(
-  modsPath,
-  { recursive: true },
-);
-
-console.log("const mods = [");
-
-for (const item of resp.data as WorkshopItems) {
-  console.log(`  /**`);
-  console.log(`   * ${item.title}`);
-  console.log(
-    `   * https://steamcommunity.com/sharedfiles/filedetails/?id=${item.publishedfileid}`,
-  );
-  console.log(`   */`);
-  console.log(`  ${item.publishedfileid},`);
-
-  const modPath = path.resolve(
-    modsPath,
-    item.title_disk_safe,
-  );
 
   await Deno.mkdir(
-    modPath,
+    modsPath,
     { recursive: true },
   );
 
-  const zipPath = path.resolve(tempDirPath, `${item.title_disk_safe}.zip`);
-  await downloadFile(
-    item.file_url,
-    zipPath,
-  );
+  console.log("const mods = [");
 
-  await decompress(
-    zipPath,
-    modPath,
-  );
+  for (const item of resp.data as WorkshopItems) {
+    console.log(`  /**`);
+    console.log(`   * ${item.title}`);
+    console.log(
+      `   * https://steamcommunity.com/sharedfiles/filedetails/?id=${item.publishedfileid}`,
+    );
+    console.log(`   */`);
+    console.log(`  ${item.publishedfileid},`);
+
+    const modPath = path.resolve(
+      modsPath,
+      item.title_disk_safe,
+    );
+
+    await Deno.mkdir(
+      modPath,
+      { recursive: true },
+    );
+
+    const zipPath = path.resolve(tempDirPath, `${item.title_disk_safe}.zip`);
+    await downloadFile(
+      item.file_url,
+      zipPath,
+    );
+
+    await decompress(
+      zipPath,
+      modPath,
+    );
+  }
+
+  await Deno.remove(tempDirPath, { recursive: true });
+
+  console.log("];");
 }
 
-await Deno.remove(tempDirPath, { recursive: true });
-
-console.log("];");
+await app();
