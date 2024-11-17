@@ -86,6 +86,16 @@ const mods = [
    * https://steamcommunity.com/sharedfiles/filedetails/?id=3303494244
    */
   3303494244,
+  /**
+   * Mass Move Tool
+   * https://steamcommunity.com/sharedfiles/filedetails/?id=3301490799
+   */
+  3301490799,
+  /**
+   * Immigrants Reroll
+   * https://steamcommunity.com/sharedfiles/filedetails/?id=2537508393
+   */
+  2537508393,
 ];
 
 async function downloadFile(url: string, outputLocationPath: string) {
