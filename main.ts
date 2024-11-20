@@ -116,13 +116,35 @@ async function downloadFile(url: string, outputLocationPath: string) {
   });
 }
 
+// deno-lint-ignore no-explicit-any
+function isNumber(value: any) {
+  return typeof value === "number";
+}
+
+interface ModItem {
+  id: number;
+  disabled: boolean;
+}
+
+async function getModsList(): Promise<ModItem[]> {
+  const modsFilePath = path.join(Deno.cwd(), "./mods.yml");
+  const modsFileRaw = await Deno.readTextFile(modsFilePath);
+  const modsFileYml = parse(modsFileRaw) as (ModItem | number)[];
+  const mods = modsFileYml.map((mod) =>
+    isNumber(mod) ? { id: mod as number, disabled: false } : mod
+  );
+
+  return mods;
+}
+
 async function app() {
-  const modsFilePath = "./mods.ts";
-  const mods = (await import(modsFilePath)).default;
+  const mods = await getModsList();
+  const modsIds = mods.map((mod) => mod.id);
+  const disabledIds = mods.filter((mod) => mod.disabled).map((mod) => mod.id);
 
   const resp = await axios.post(
     "https://db.steamworkshopdownloader.io/prod/api/details/file",
-    mods,
+    modsIds,
   );
 
   const tempDirPath = await Deno.makeTempDir();
@@ -146,18 +168,25 @@ async function app() {
     { recursive: true },
   );
 
-  const modsFileContent = ["export default ["];
+  const modsFileContent = ["---"];
 
   for (const item of resp.data as WorkshopItems) {
     console.log(`${item.publishedfileid} : ${item.title}`);
+    const isDisabled = disabledIds.includes(parseInt(item.publishedfileid));
 
-    modsFileContent.push(`  /**`);
-    modsFileContent.push(`   * ${item.title}`);
+    modsFileContent.push(`# ${item.title}`);
     modsFileContent.push(
-      `   * https://steamcommunity.com/sharedfiles/filedetails/?id=${item.publishedfileid}`,
+      `# https://steamcommunity.com/sharedfiles/filedetails/?id=${item.publishedfileid}`,
     );
-    modsFileContent.push(`   */`);
-    modsFileContent.push(`  ${item.publishedfileid},`);
+    modsFileContent.push(`- id: ${item.publishedfileid}`);
+    if (isDisabled) {
+      console.log("  Skip downloading as it's disabled");
+      modsFileContent.push(`  disabled: true`);
+      modsFileContent.push(``);
+
+      continue;
+    }
+    modsFileContent.push(``);
 
     const modPath = path.resolve(
       modsPath,
@@ -182,9 +211,8 @@ async function app() {
   }
 
   await Deno.remove(tempDirPath, { recursive: true });
-  modsFileContent.push("];");
 
-  await Deno.writeTextFile(modsFilePath, modsFileContent.join("\n"));
+  await Deno.writeTextFile("mods.yml", modsFileContent.join("\n").trim());
 }
 
 await app();
