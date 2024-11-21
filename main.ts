@@ -199,10 +199,19 @@ async function app() {
     );
 
     const zipPath = path.resolve(tempDirPath, `${item.title_disk_safe}.zip`);
-    await downloadFile(
-      item.file_url,
-      zipPath,
-    );
+    for (const attempt of Array(5).keys()) {
+      try {
+        await downloadFile(
+          item.file_url,
+          zipPath,
+        );
+        continue;
+      } catch (err) {
+        if (attempt == 4) throw err;
+
+        console.log("Caught error", err, `Attempt ${attempt + 2}`);
+      }
+    }
 
     await decompress(
       zipPath,
